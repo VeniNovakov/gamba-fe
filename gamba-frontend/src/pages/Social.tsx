@@ -1,6 +1,6 @@
-// src/pages/Social.tsx
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useNavigate } from "react-router-dom";
 
 type User = {
   id: string;
@@ -16,23 +16,12 @@ type Friend = {
   friend: User;
 };
 
-type FriendRequest = {
-  id: string;
-  user_id: string;
-  friend_id: string;
-  status: "pending" | "accepted" | "rejected";
-  user: User;
-  friend: User;
-};
-
 type Message = {
   id: string;
   chat_id: string;
   sender_id: string;
   content: string;
   created_at: string;
-  read_at?: string;
-  sender?: User;
 };
 
 type Chat = {
@@ -50,280 +39,294 @@ type Tournament = {
 };
 
 function parseJwt(token: string) {
-  const base64Url = token.split(".")[1];
-  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-  return JSON.parse(atob(base64));
+  try {
+    const base64Url = token.split(".")[1];
+    return JSON.parse(atob(base64Url));
+  } catch (e) {
+    return null;
+  }
 }
 
 export default function Social() {
+  const navigate = useNavigate();
   const token = localStorage.getItem("access");
-  const myId = token ? parseJwt(token).user_id : null;
+  const myId = token ? parseJwt(token)?.user_id : null;
 
+  // Data States
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
-
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [joined, setJoined] = useState<string[]>([]);
-
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState<User[]>([]);
-
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [incoming, setIncoming] = useState<FriendRequest[]>([]);
-  const [sent, setSent] = useState<FriendRequest[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  
+  // UI States
+  const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [joinedTournaments, setJoinedTournaments] = useState<Set<string>>(new Set());
+  const [loadingJoin, setLoadingJoin] = useState<string | null>(null);
+
+  // Modal States
+  const [showMoneyModal, setShowMoneyModal] = useState(false);
+  const [moneyUser, setMoneyUser] = useState<User | null>(null);
+  const [moneyAmount, setMoneyAmount] = useState("");
+  const [transferStatus, setTransferStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
 
   const wsRef = useRef<WebSocket | null>(null);
-
-  if (!token || !myId) {
-    return <h2>Please login first</h2>;
-  }
-
-  const getFriendUser = (f: Friend): User => {
-    return f.user_id === myId ? f.friend : f.user;
-  };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.get("/chats").then((r) => setChats(r.data));
-    api.get("/tournaments").then((r) => setTournaments(r.data));
-    api.get("/friends").then((r) => setFriends(r.data));
-    api.get("/friends/requests").then((r) => setIncoming(r.data));
-    api.get("/friends/sent").then((r) => setSent(r.data));
-  }, []);
+    if (!token || !myId) return;
 
-  useEffect(() => {
+    Promise.all([
+      api.get("/chats"),
+      api.get("/friends"),
+      api.get("/tournaments"),
+    ]).then(([chatsRes, friendsRes, tourneyRes]) => {
+      setChats(chatsRes.data);
+      setFriends(friendsRes.data);
+      setTournaments(tourneyRes.data);
+    }).catch(err => console.error("Failed to load social data", err));
+
     const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-
       if (msg.type === "new_message") {
-        setMessages((m) => {
-          if (m.some((x) => x.id === msg.payload.id)) return m;
-          return [...m, msg.payload];
-        });
-      }
-
-      if (msg.type === "message_read") {
-        setMessages((m) =>
-          m.map((x) =>
-            x.chat_id === msg.payload.chat_id && !x.read_at
-              ? { ...x, read_at: new Date().toISOString() }
-              : x
-          )
-        );
-      }
-
-      if (msg.type === "typing") {
-        setTyping(true);
-        setTimeout(() => setTyping(false), 1500);
+        setMessages((prev) => [...prev, msg.payload]);
       }
     };
 
     return () => ws.close();
-  }, [token]);
+  }, [token, myId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activeChat]);
+
+  // --- Handlers ---
+
+  const getChatUser = (chat: Chat) =>
+    chat.user1_id === myId ? chat.user2 : chat.user1;
 
   const openChat = async (chat: Chat) => {
     setActiveChat(chat);
-    const res = await api.get(`/chats/${chat.id}/messages`);
-    setMessages(res.data);
-    
-    // Mark as read
-    await api.post(`/chats/${chat.id}/read`);
-  };
-
-const sendMessage = () => {
-  if (!input.trim() || !activeChat) return;
-
-  const newMessage: Message = {
-    id: crypto.randomUUID(),
-    chat_id: activeChat.id,
-    sender_id: myId,
-    content: input,
-    created_at: new Date().toISOString(),
-  };
-
-  setMessages((m) => [...m, newMessage]);
-
-  wsRef.current?.send(
-    JSON.stringify({
-      type: "send_message",
-      payload: {
-        chat_id: activeChat.id,
-        content: input,
-      },
-    })
-  );
-
-  setInput("");
-};
-
-  const sendTyping = () => {
-    if (!activeChat) return;
-
-    wsRef.current?.send(
-      JSON.stringify({
-        type: "typing",
-        payload: { chat_id: activeChat.id },
-      })
-    );
-  };
-
-  useEffect(() => {
-    if (!search.trim()) {
-      setResults([]);
-      return;
-    }
-
-    const t = setTimeout(async () => {
-      const res = await api.get(`/users/search?q=${search}`);
-      setResults(res.data);
-    }, 300);
-
-    return () => clearTimeout(t);
-  }, [search]);
-
-  const startChat = async (user: User) => {
     try {
-      const res = await api.post("/chats", { user_id: user.id });
-      setChats((c) => [res.data, ...c]);
-      openChat(res.data);
-    } catch (err: any) {
-      if (err.response?.status === 409) {
-        const res = await api.get("/chats");
-        setChats(res.data);
-
-        const existing = res.data.find(
-          (c: Chat) => c.user1_id === user.id || c.user2_id === user.id
-        );
-
-        if (existing) openChat(existing);
-      }
+      const res = await api.get(`/chats/${chat.id}/messages`);
+      setMessages(res.data);
+    } catch (e) {
+      console.error("Failed to load messages");
     }
-
-    setResults([]);
-    setSearch("");
   };
 
-  const sendFriendRequest = async (id: string) => {
-    await api.post("/friends/request", { user_id: id });
-    const res = await api.get("/friends/sent");
-    setSent(res.data);
+  const sendMessage = () => {
+    if (!input.trim() || !activeChat) return;
+    const payload = { chat_id: activeChat.id, content: input };
+    wsRef.current?.send(JSON.stringify({ type: "send_message", payload }));
+    setInput("");
   };
 
-  const acceptRequest = async (id: string) => {
-    await api.post(`/friends/${id}/accept`);
-    setIncoming((r) => r.filter((x) => x.id !== id));
-    const res = await api.get("/friends");
-    setFriends(res.data);
+  const handleAddFriend = async (userId: string) => {
+    try {
+      await api.post(`/friends`, { friend_id: userId });
+      alert("Friend request sent!");
+      setSearch(""); 
+    } catch (err) {
+      alert("Could not add friend.");
+    }
   };
 
-  const rejectRequest = async (id: string) => {
-    await api.post(`/friends/${id}/reject`);
-    setIncoming((r) => r.filter((x) => x.id !== id));
+
+  const handleUnfriend = async (friendshipId: string, friendName: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${friendName} from your friends?`)) return;
+
+    try {
+      await api.delete(`/friends/${friendshipId}`);
+      
+      setFriends(prev => prev.filter(f => f.id !== friendshipId));
+      
+      if (activeChat) {
+        const otherUser = getChatUser(activeChat);
+        if (otherUser.username === friendName) {
+          setActiveChat(null);
+          setMessages([]);
+        }
+      }
+    } catch (err) {
+      alert("Failed to unfriend user. Please try again.");
+    }
+  };
+  useEffect(() => {
+      if (!search.trim()) return setSearchResults([]);
+      const t = setTimeout(async () => {
+        try {
+          const res = await api.get(`/users/search?q=${search}`);
+          setSearchResults(res.data);
+        } catch (e) {
+          console.error("Search failed", e);
+        }
+      }, 400);
+      return () => clearTimeout(t);
+    }, [search]);
+
+  const handleJoinTournament = async (tId: string) => {
+    setLoadingJoin(tId);
+    try {
+      await api.post(`/tournaments/${tId}/join`);
+      setJoinedTournaments(prev => new Set(prev).add(tId));
+    } catch (error) {
+      console.error("Join error", error);
+    } finally {
+      setLoadingJoin(null);
+    }
   };
 
-  const removeFriend = async (id: string) => {
-    await api.delete(`/friends/${id}`);
-    setFriends((f) => f.filter((x) => getFriendUser(x).id !== id));
+  const openSendMoneyModal = (user: User) => {
+    setMoneyUser(user);
+    setMoneyAmount("");
+    setTransferStatus("idle");
+    setShowMoneyModal(true);
   };
 
-  const joinTournament = async (id: string) => {
-    await api.post(`/tournaments/${id}/join`);
-    setJoined((j) => [...j, id]);
+  const handleTransfer = async () => {
+    if (!moneyAmount || !moneyUser) return;
+    setTransferStatus("sending");
+    try {
+      await api.post('/wallet/transfer', { to_user_id: moneyUser.id, amount: Number(moneyAmount) });
+      setTransferStatus("success");
+      setTimeout(() => setShowMoneyModal(false), 1500);
+    } catch (e) {
+      setTransferStatus("error");
+    }
   };
+
+  if (!token || !myId) return <div className="page">Please Login</div>;
 
   return (
-    <div style={{ display: "flex", height: "80vh" }}>
-      <div style={{ width: 320, borderRight: "1px solid #ddd", padding: 10 }}>
-        <h3>Search users</h3>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="username..."
-          style={{ width: "100%" }}
-        />
-
-        {results.map((u) => (
-          <div key={u.id} style={{ display: "flex", gap: 5 }}>
-            {u.username}
-            <button onClick={() => sendFriendRequest(u.id)}>Add</button>
-            <button onClick={() => startChat(u)}>Chat</button>
+    <div className="page">
+      <div className="social-grid">
+        
+        <div className="card" style={{ padding: "1.5rem", overflowY: "auto" }}>
+          <h3 className="text-accent mb-lg">Social Hub</h3>
+          <div className="mb-lg">
+            <input
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-        ))}
-
-        <h3 style={{ marginTop: 20 }}>Friend Requests</h3>
-        {incoming.map((r) => (
-          <div key={r.id} style={{ display: "flex", gap: 5 }}>
-            {r.user?.username}
-            <button onClick={() => acceptRequest(r.id)}>Accept</button>
-            <button onClick={() => rejectRequest(r.id)}>Reject</button>
-          </div>
-        ))}
-
-        <h3 style={{ marginTop: 20 }}>Friends</h3>
-        {friends.map((f) => {
-          const friendUser = getFriendUser(f);
-          return (
-            <div key={f.id} style={{ display: "flex", gap: 5 }}>
-              {friendUser.username}
-              <button onClick={() => startChat(friendUser)}>Chat</button>
-              <button onClick={() => removeFriend(friendUser.id)}>Remove</button>
-            </div>
-          );
-        })}
-
-        <h3 style={{ marginTop: 20 }}>Tournaments</h3>
-        {tournaments.map((t) => (
-          <button
-            key={t.id}
-            disabled={joined.includes(t.id)}
-            onClick={() => joinTournament(t.id)}
-            style={{ display: "block", width: "100%" }}
-          >
-            {joined.includes(t.id) ? `Joined ${t.name}` : `Join ${t.name}`}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ flex: 1, padding: 10 }}>
-        {activeChat ? (
-          <>
-            <div style={{ height: "70vh", overflowY: "auto" }}>
-              {messages.map((m) => (
-                <div key={m.id}>
-                  <b>{m.sender_id === myId ? "You" : m.sender?.username}:</b>{" "}
-                  {m.content}
-                  <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {m.sender_id === myId && (
-                      <span style={{ marginLeft: 4 }}>
-                        {m.read_at ? `✓✓ ${new Date(m.read_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "✓"}
-                      </span>
-                    )}
-                  </span>
+          
+          <div style={{ flex: 1 }}>
+            
+            {searchResults.length > 0 && (
+                <div className="sidebar-section">
+                    <div className="section-title text-accent">Global Search</div>
+                    {searchResults.map((u) => (
+                        <div key={u.id} className="list-item">
+                            <span>{u.username}</span>
+                            <button 
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleAddFriend(u.id)}
+                            >
+                              Add
+                            </button>
+                        </div>
+                    ))}
                 </div>
-              ))}
-              {typing && <i>Typing...</i>}
-            </div>
+            )}
+          </div>
+          <div className="sidebar-section">
+            <div className="section-title">Active Chats</div>
+            {chats.map((c) => (
+              <div key={c.id} className={`list-item ${activeChat?.id === c.id ? 'active' : ''}`} onClick={() => openChat(c)}>
+                <span className="text-bold">{getChatUser(c).username}</span>
+              </div>
+            ))}
+          </div>
 
-            <div style={{ display: "flex" }}>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={sendTyping}
-                style={{ flex: 1 }}
-              />
-              <button onClick={sendMessage}>Send</button>
+          <div className="sidebar-section">
+            <div className="section-title">Friends</div>
+            {friends.map((f) => {
+              const u = f.user_id === myId ? f.friend : f.user;
+              return (
+                <div key={f.id} className="list-item" style={{ gap: "0.5rem" }}>
+                  <span style={{ flex: 1 }}>{u.username}</span>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openSendMoneyModal(u)} title="Send Credits">$</button>
+                  
+                  <button 
+                    className="btn btn-secondary btn-sm btn-danger-hover" 
+                    onClick={(e) => { e.stopPropagation(); handleUnfriend(f.id, u.username); }}
+                    title="Remove Friend"
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="sidebar-section">
+            <div className="section-title">Tournaments</div>
+            {tournaments.map((t) => (
+              <div key={t.id} className="list-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div className="text-bold">{t.name}</div>
+                <div className="flex-row mt-sm" style={{ width: '100%' }}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/tournaments/${t.id}`)}>View</button>
+                  <button 
+                    className="btn btn-primary btn-sm" 
+                    style={{ flex: 1 }} 
+                    disabled={joinedTournaments.has(t.id)}
+                    onClick={() => handleJoinTournament(t.id)}
+                  >
+                    {joinedTournaments.has(t.id) ? "Joined" : "Join"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card chat-container">
+          {activeChat ? (
+            <>
+              <div className="chat-header">
+                <h3 className="text-accent">{getChatUser(activeChat).username}</h3>
+              </div>
+              <div className="messages-area">
+                {messages.map((m) => (
+                  <div key={m.id} className={`message-bubble ${m.sender_id === myId ? 'msg-mine' : 'msg-theirs'}`}>
+                    {m.content}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="chat-input-area">
+                <input placeholder="Type a message..." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} />
+                <button className="btn btn-primary" onClick={sendMessage}>Send</button>
+              </div>
+            </>
+          ) : (
+            <div className="chat-empty-state">
+              <h2>Select a conversation</h2>
             </div>
-          </>
-        ) : (
-          <h3>Select a chat</h3>
-        )}
+          )}
+        </div>
       </div>
+
+      {showMoneyModal && moneyUser && (
+        <div className="modal-overlay" onClick={() => setShowMoneyModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="mb-lg">Transfer Credits</h3>
+            <p className="mb-lg">Sending to <span className="text-accent">{moneyUser.username}</span></p>
+            <input type="number" placeholder="0.00" value={moneyAmount} onChange={e => setMoneyAmount(e.target.value)} />
+            <div className="flex-row mt-lg" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowMoneyModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleTransfer}>Transfer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
