@@ -58,8 +58,8 @@ export default function Social() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  
-  // UI States
+  const [pendingRequests, setPendingRequests] = useState<Friend[]>([]);
+
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -82,10 +82,12 @@ export default function Social() {
       api.get("/chats"),
       api.get("/friends"),
       api.get("/tournaments"),
-    ]).then(([chatsRes, friendsRes, tourneyRes]) => {
+      api.get("/friends/requests"),
+    ]).then(([chatsRes, friendsRes, tourneyRes, requestsRes]) => {
       setChats(chatsRes.data);
       setFriends(friendsRes.data);
       setTournaments(tourneyRes.data);
+      setPendingRequests(requestsRes.data);
     }).catch(err => console.error("Failed to load social data", err));
 
     const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
@@ -149,7 +151,8 @@ export default function Social() {
     };
   const handleAddFriend = async (userId: string) => {
     try {
-      await api.post(`/friends`, { friend_id: userId });
+      await api.post(`/friends/request`, { user_id: userId });
+      console.log(userId)
       alert("Friend request sent!");
       setSearch(""); 
     } catch (err) {
@@ -157,6 +160,30 @@ export default function Social() {
     }
   };
 
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      await api.post(`/friends/${requestId}/accept`);
+      // Refresh both friends and pending requests lists
+      const [friendsRes, requestsRes] = await Promise.all([
+        api.get("/friends"),
+        api.get("/friends/requests")
+      ]);
+      setFriends(friendsRes.data);
+      setPendingRequests(requestsRes.data);
+      alert("Friend request accepted!");
+    } catch (err) {
+      alert("Failed to accept request.");
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      await api.post(`/friends/${requestId}/reject`);
+      setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (err) {
+      alert("Failed to reject request.");
+    }
+  };
 
   const handleUnfriend = async (friendshipId: string, friendName: string) => {
     if (!window.confirm(`Are you sure you want to remove ${friendName} from your friends?`)) return;
@@ -267,6 +294,32 @@ export default function Social() {
           </div>
 
           <div className="sidebar-section">
+            {pendingRequests.length > 0 && (
+              <div className="sidebar-section">
+                <div className="section-title text-accent">Pending Requests ({pendingRequests.length})</div>
+                {pendingRequests.map((f) => (
+                  <div key={f.id} className="list-item" style={{ background: 'rgba(60, 255, 178, 0.05)' }}>
+                    <span style={{ flex: 1 }}>{f.user.username}</span>
+                    <div className="flex-row" style={{ gap: '4px' }}>
+                      <button 
+                        className="btn btn-primary btn-sm" 
+                        onClick={() => handleAcceptRequest(f.id)}
+                        title="Accept"
+                      >
+                        ✓
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm btn-danger-hover" 
+                        onClick={() => handleRejectRequest(f.id)}
+                        title="Reject"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="section-title">Friends</div>
             {friends.map((f) => {
               const u = f.user_id === myId ? f.friend : f.user;
