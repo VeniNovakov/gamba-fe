@@ -213,8 +213,9 @@ export default function Social() {
     if (!moneyAmount || !moneyUser) return;
     setTransferStatus("sending");
     try {
-      await api.post('/wallet/transfer', { to_user_id: moneyUser.id, amount: Number(moneyAmount) });
+      await api.post('/transactions/transfer', { to_user_id: moneyUser.id, amount: Number(moneyAmount) });
       setTransferStatus("success");
+      alert(`Successfully sent $${moneyAmount} to ${moneyUser.username}`);
       setTimeout(() => setShowMoneyModal(false), 1500);
     } catch (e) {
       setTransferStatus("error");

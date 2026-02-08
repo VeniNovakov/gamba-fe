@@ -1,4 +1,3 @@
-// src/components/Navbar.tsx
 import { NavLink, useNavigate } from "react-router-dom";
 
 export default function Navbar() {
@@ -12,44 +11,46 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <div className="navbar-logo">
-          <span className="text-accent">GAMBA</span> CASINO
+        {/* LOGO */}
+        <div className="navbar-logo" onClick={() => navigate("/dashboard")} style={{ cursor: 'pointer' }}>
+          <span className="text-accent">GAMBA</span> <span>CASINO</span>
         </div>
 
+        {/* NAVIGATION LINKS */}
         <ul className="navbar-nav">
           <li>
-            <NavLink 
-              to="/dashboard" 
-              className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}
-            >
+            <NavLink to="/dashboard" className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}>
               Dashboard
             </NavLink>
           </li>
           <li>
-            <NavLink 
-              to="/play" 
-              className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}
-            >
+            <NavLink to="/play" className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}>
               Play
             </NavLink>
           </li>
           <li>
-            <NavLink 
-              to="/social" 
-              className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}
-            >
+            <NavLink to="/events" className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}>
+              Events
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/social" className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}>
               Social
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/support" className={({ isActive }) => `navbar-link ${isActive ? "active" : ""}`}>
+              Support
             </NavLink>
           </li>
         </ul>
 
-        <button 
-          onClick={handleLogout}
-          className="btn btn-secondary btn-sm"
-          style={{ borderColor: "var(--secondary)", color: "var(--secondary)" }}
-        >
-          Logout
-        </button>
+        {/* ACTIONS */}
+        <div className="navbar-actions">
+          <button onClick={handleLogout} className="btn-logout">
+            Logout
+          </button>
+        </div>
       </div>
     </nav>
   );

@@ -1,4 +1,3 @@
-// src/App.tsx
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -6,13 +5,17 @@ import Play from "./pages/Play";
 import Social from "./pages/Social";
 import Navbar from "./components/Navbar";
 import Tournament from "./pages/Tournament"; 
+import Events from "./pages/Events";
+import Support from "./pages/Support"; // Fixed typo (was Suppprt)
 import "./styles/styles.css"; 
+
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const hideNavbar = location.pathname === "/";
+  const isAuthPage = location.pathname === "/";
 
   return (
     <div className="app">
+      {/* Dynamic Background Elements */}
       <div className="app-background">
         <div className="grid-overlay"></div>
         <div className="glow-orb glow-orb-1"></div>
@@ -20,17 +23,15 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="glow-orb glow-orb-3"></div>
       </div>
 
-      {!hideNavbar && <Navbar />}
+      {!isAuthPage && <Navbar />}
 
-      <main className="app-content">
+      <main className={`app-content ${!isAuthPage ? "content-with-nav" : ""}`}>
         {children}
       </main>
 
-      <div className="app-footer">
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
-          © 2026 GAMBA CASINO. All systems normal.
-        </p>
-      </div>
+      <footer className="app-footer">
+        <p>© 2026 GAMBA CASINO. All systems normal.</p>
+      </footer>
     </div>
   );
 }
@@ -45,6 +46,8 @@ export default function App() {
           <Route path="/play" element={<Play />} />
           <Route path="/social" element={<Social />} />
           <Route path="/tournaments/:id" element={<Tournament />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/support" element={<Support />} />
         </Routes>
       </Layout>
     </BrowserRouter>
