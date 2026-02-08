@@ -121,12 +121,32 @@ export default function Social() {
   };
 
   const sendMessage = () => {
-    if (!input.trim() || !activeChat) return;
-    const payload = { chat_id: activeChat.id, content: input };
-    wsRef.current?.send(JSON.stringify({ type: "send_message", payload }));
-    setInput("");
-  };
+      if (!input.trim() || !activeChat) return;
 
+      const optimistic: Message = {
+        id: crypto.randomUUID(), // temp id
+        chat_id: activeChat.id,
+        sender_id: myId,
+        content: input,
+        created_at: new Date().toISOString(),
+      };
+
+      // show instantly
+      setMessages((m) => [...m, optimistic]);
+
+      // send to server
+      wsRef.current?.send(
+        JSON.stringify({
+          type: "send_message",
+          payload: {
+            chat_id: activeChat.id,
+            content: input,
+          },
+        })
+      );
+
+      setInput("");
+    };
   const handleAddFriend = async (userId: string) => {
     try {
       await api.post(`/friends`, { friend_id: userId });

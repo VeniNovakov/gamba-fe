@@ -35,7 +35,6 @@ export default function Play() {
   const play = async () => {
     if (!selectedGame || loading) return;
     
-    // Optimistic check
     if (balance < bet) {
         setMessage("Insufficient funds");
         setWon(false);
@@ -183,7 +182,6 @@ export default function Play() {
                 )}
               </div>
 
-              {/* Controls */}
               <div style={{ width: "100%", maxWidth: "400px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
                     <span>Min: ${selectedGame.min_bet}</span>
