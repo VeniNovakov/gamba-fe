@@ -6,12 +6,11 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
-  // Controlled inputs are better for validation
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent page refresh
+    e.preventDefault(); 
     setError("");
 
     // Frontend Pre-validation to match your Go 'binding' tags

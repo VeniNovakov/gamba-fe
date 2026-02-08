@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
@@ -17,7 +16,6 @@ export default function Dashboard() {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // New state for money input
   const [amountInput, setAmountInput] = useState<string>("");
 
   const fetchData = async () => {
@@ -50,7 +48,7 @@ export default function Dashboard() {
 
     try {
       await api.post(`/transactions/${type}`, { amount: numAmount });
-      setAmountInput(""); // Clear input on success
+      setAmountInput(""); 
       fetchData();
     } catch (e) {
       alert("Transaction failed. Check console for details.");

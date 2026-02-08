@@ -1,8 +1,7 @@
-// src/pages/Events.tsx
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { format } from "date-fns";
-import { Shield, Timer, TrendingUp, DollarSign } from "lucide-react";
+import { Shield, Timer, DollarSign } from "lucide-react";
 
 type Outcome = {
   id: string;
@@ -25,7 +24,6 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("upcoming");
   
-  // Bet Modal State
   const [selectedOutcome, setSelectedOutcome] = useState<{event: Event, outcome: Outcome} | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [betStatus, setBetStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
@@ -80,7 +78,7 @@ export default function Events() {
 
       <div className="events-grid">
         {loading ? (
-          <div className="text-center py-xl w-full">Scanning Nexus for events...</div>
+          <div className="text-center py-xl w-full">Scanning GAMBA for events...</div>
         ) : events.map((event) => (
           <div key={event.id} className="card event-card">
             <div className="event-badge">{event.category}</div>

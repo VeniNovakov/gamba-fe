@@ -1,4 +1,3 @@
-// src/utils/auth.ts
 import { jwtDecode } from "jwt-decode";
 
 interface CustomJwtPayload {
@@ -13,7 +12,6 @@ export const isAdmin = (): boolean => {
   
   try {
     const decoded = jwtDecode<CustomJwtPayload>(token);
-    // Check if role is 'admin' and token isn't expired
     return decoded.role === "admin" && decoded.exp * 1000 > Date.now();
   } catch {
     return false;

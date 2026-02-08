@@ -1,4 +1,3 @@
-// src/api/admin.ts
 import { api } from "./client";
 
 export const adminApi = {
@@ -6,7 +5,6 @@ export const adminApi = {
   updateTournament: (id: string, data: any) => api.put(`/tournaments/${id}`, data),
   deleteTournament: (id: string) => api.delete(`/tournaments/${id}`),
   endTournament: (id: string) => api.post(`/tournaments/${id}/end`),
-  // Helper to refresh scores manually if needed
   updateScore: (id: string, userId: string, score: number) => 
     api.post(`/tournaments/${id}/score`, { user_id: userId, score })
 };

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useNavigate } from "react-router-dom";
 
-// Match your models.Ticket from Go
 type TicketMessage = {
   id: string;
   sender_id: string;
@@ -25,7 +24,6 @@ export default function Support() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Form States
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -59,7 +57,6 @@ export default function Support() {
     try {
       await api.post(`/ticket/${selectedTicket.id}/messages`, { content: newMessage });
       setNewMessage("");
-      // Refresh selected ticket
       const res = await api.get(`/ticket/${selectedTicket.id}`);
       setSelectedTicket(res.data);
       fetchTickets();

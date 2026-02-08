@@ -52,7 +52,6 @@ export default function Social() {
   const token = localStorage.getItem("access");
   const myId = token ? parseJwt(token)?.user_id : null;
 
-  // Data States
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,7 +65,6 @@ export default function Social() {
   const [joinedTournaments, setJoinedTournaments] = useState<Set<string>>(new Set());
   const [loadingJoin, setLoadingJoin] = useState<string | null>(null);
 
-  // Modal States
   const [showMoneyModal, setShowMoneyModal] = useState(false);
   const [moneyUser, setMoneyUser] = useState<User | null>(null);
   const [moneyAmount, setMoneyAmount] = useState("");
@@ -107,7 +105,6 @@ export default function Social() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeChat]);
 
-  // --- Handlers ---
 
   const getChatUser = (chat: Chat) =>
     chat.user1_id === myId ? chat.user2 : chat.user1;
@@ -126,17 +123,15 @@ export default function Social() {
       if (!input.trim() || !activeChat) return;
 
       const optimistic: Message = {
-        id: crypto.randomUUID(), // temp id
+        id: crypto.randomUUID(),  
         chat_id: activeChat.id,
         sender_id: myId,
         content: input,
         created_at: new Date().toISOString(),
       };
 
-      // show instantly
       setMessages((m) => [...m, optimistic]);
 
-      // send to server
       wsRef.current?.send(
         JSON.stringify({
           type: "send_message",
@@ -163,7 +158,6 @@ export default function Social() {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await api.post(`/friends/${requestId}/accept`);
-      // Refresh both friends and pending requests lists
       const [friendsRes, requestsRes] = await Promise.all([
         api.get("/friends"),
         api.get("/friends/requests")
@@ -249,7 +243,6 @@ export default function Social() {
     }
   };
   const handleStartChat = async (friendId: string) => {
-    // 1. Find if a chat already exists in our state
     const existingChat = chats.find(c => 
       c.user1_id === friendId || c.user2_id === friendId
     );
@@ -257,7 +250,6 @@ export default function Social() {
     if (existingChat) {
       openChat(existingChat);
     } else {
-      // 2. Optional: Create a new chat if one doesn't exist
       try {
         const res = await api.post('/chats', { user_id: friendId });
         const newChat = res.data;

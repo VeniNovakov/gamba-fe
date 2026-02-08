@@ -6,7 +6,7 @@ import Social from "./pages/Social";
 import Navbar from "./components/Navbar";
 import Tournament from "./pages/Tournament"; 
 import Events from "./pages/Events";
-import Support from "./pages/Support"; // Fixed typo (was Suppprt)
+import Support from "./pages/Support";  
 import "./styles/styles.css"; 
 
 function Layout({ children }: { children: React.ReactNode }) {
