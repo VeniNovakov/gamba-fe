@@ -248,7 +248,26 @@ export default function Social() {
       setTransferStatus("error");
     }
   };
+  const handleStartChat = async (friendId: string) => {
+    // 1. Find if a chat already exists in our state
+    const existingChat = chats.find(c => 
+      c.user1_id === friendId || c.user2_id === friendId
+    );
 
+    if (existingChat) {
+      openChat(existingChat);
+    } else {
+      // 2. Optional: Create a new chat if one doesn't exist
+      try {
+        const res = await api.post('/chats', { user_id: friendId });
+        const newChat = res.data;
+        setChats(prev => [newChat, ...prev]);
+        openChat(newChat);
+      } catch (err) {
+        alert("Could not start a conversation with this user.");
+      }
+    }
+  };
   if (!token || !myId) return <div className="page">Please Login</div>;
 
   return (
@@ -320,13 +339,39 @@ export default function Social() {
                 ))}
               </div>
             )}
-            <div className="section-title">Friends</div>
-            {friends.map((f) => {
-              const u = f.user_id === myId ? f.friend : f.user;
-              return (
-                <div key={f.id} className="list-item" style={{ gap: "0.5rem" }}>
-                  <span style={{ flex: 1 }}>{u.username}</span>
-                  <button className="btn btn-secondary btn-sm" onClick={() => openSendMoneyModal(u)} title="Send Credits">$</button>
+            
+        <div className="sidebar-section">
+          <div className="section-title">Friends</div>
+          {friends.map((f) => {
+            const u = f.user_id === myId ? f.friend : f.user;
+            return (
+              <div key={f.id} className="list-item" style={{ gap: "0.5rem" }}>
+                {/* Click name to open chat */}
+                <span 
+                  style={{ flex: 1, cursor: 'pointer' }} 
+                  className="friend-name-link"
+                  onClick={() => handleStartChat(u.id)}
+                >
+                  {u.username}
+                </span>
+                
+                <div className="flex-row" style={{ gap: '4px' }}>
+                  {/* Chat Icon Button */}
+                  <button 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => handleStartChat(u.id)} 
+                    title="Message"
+                  >
+                    💬
+                  </button>
+                  
+                  <button 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => openSendMoneyModal(u)} 
+                    title="Send Credits"
+                  >
+                    $
+                  </button>
                   
                   <button 
                     className="btn btn-secondary btn-sm btn-danger-hover" 
@@ -336,9 +381,11 @@ export default function Social() {
                     ✕
                   </button>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
+        </div>
+        </div>
 
           <div className="sidebar-section">
             <div className="section-title">Tournaments</div>
