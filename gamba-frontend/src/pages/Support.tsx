@@ -98,6 +98,7 @@ export default function Support() {
             >
                 <div>
                 <div className="text-bold">{t.subject}</div>
+                <div className="text">{t.description}</div>
                 <small className="text-secondary">{new Date(t.created_at).toLocaleDateString()}</small>
                 </div>
                 <span className={`status-pill ${t.status.toLowerCase()}`}>{t.status}</span>

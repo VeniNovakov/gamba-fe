@@ -23,7 +23,6 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("upcoming");
-  
   const [selectedOutcome, setSelectedOutcome] = useState<{event: Event, outcome: Outcome} | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [betStatus, setBetStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
